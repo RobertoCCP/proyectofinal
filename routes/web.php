@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 //agregamos los siguientes controladores
 use App\Http\Controllers\HomeController;
@@ -16,6 +17,20 @@ use App\Http\Controllers\ClienteController;
 | contains the "web" middleware group. Now create something great!
 |
 */
+
+use Illuminate\Support\Facades\Mail;
+use App\Mail\ExampleMail;
+
+Route::get('/send-email', function () {
+    $details = [
+        'title' => 'Correo de prueba',
+        'body' => 'Este es un correo de prueba enviado desde Laravel.',
+    ];
+
+    Mail::to('lotisour686@gmail.com')->send(new ExampleMail($details));
+
+    return "Correo enviado";
+});
 
 Route::get('/', function () {
     return view('auth.login');

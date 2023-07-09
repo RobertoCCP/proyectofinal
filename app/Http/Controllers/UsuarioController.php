@@ -8,6 +8,9 @@ use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Arr;
+use App\Models\Audit;
+use Illuminate\Support\Facades\Auth;
+
 
 class UsuarioController extends Controller
 {
@@ -46,6 +49,8 @@ class UsuarioController extends Controller
         $user = User::create($input);
         $user->assignRole($request->input('roles'));
 
+        $this->createAudit('create', null, $user);
+
         return redirect()->route('usuarios.index');
     }
 
@@ -76,17 +81,43 @@ class UsuarioController extends Controller
         }
 
         $user = User::find($id);
+        $oldData = $user->toArray();
         $user->update($input);
 
         DB::table('model_has_roles')->where('model_id', $id)->delete();
         $user->assignRole($request->input('roles'));
+
+        $this->createAudit('update', $oldData, $user);
 
         return redirect()->route('usuarios.index');
     }
 
     public function destroy($id)
     {
-        User::find($id)->delete();
+        $user = User::find($id);
+    
+        if (!$user) {
+            // El usuario no existe, manejar el escenario adecuado aquí
+            // Por ejemplo, redirigir a una página de error o mostrar un mensaje de error
+        } else {
+            $oldData = $user->toArray();
+    
+            $user->delete();
+    
+            $this->createAudit('delete', $oldData);
+        }
+    
         return redirect()->route('usuarios.index');
+    }
+    
+
+    private function createAudit($action, $oldData = null, $newData = null)
+    {
+        $audit = new Audit();
+        $audit->user_id = Auth::user()->id;
+        $audit->action = $action;
+        $audit->old_data = json_encode($oldData);
+        $audit->new_data = json_encode($newData);
+        $audit->save();
     }
 }

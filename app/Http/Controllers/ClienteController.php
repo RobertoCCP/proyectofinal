@@ -6,14 +6,17 @@ use Illuminate\Http\Request;
 
 use App\Models\Cliente;
 
+use App\Models\Audit;
+
+
 class ClienteController extends Controller
 {
     function __construct()
     {
-         $this->middleware('permission:ver-cliente|crear-cliente|editar-cliente|borrar-cliente')->only('index');
-         $this->middleware('permission:crear-cliente', ['only' => ['create','store']]);
-         $this->middleware('permission:editar-cliente', ['only' => ['edit','update']]);
-         $this->middleware('permission:borrar-cliente', ['only' => ['destroy']]);
+        $this->middleware('permission:ver-cliente|crear-cliente|editar-cliente|borrar-cliente')->only('index');
+        $this->middleware('permission:crear-cliente', ['only' => ['create', 'store']]);
+        $this->middleware('permission:editar-cliente', ['only' => ['edit', 'update']]);
+        $this->middleware('permission:borrar-cliente', ['only' => ['destroy']]);
     }
     /**
      * Display a listing of the resource.
@@ -21,11 +24,11 @@ class ClienteController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function index()
-    {       
-         //Con paginación
-         $clientes = Cliente::paginate(5);
-         return view('clientes.index',compact('clientes'));
-         //al usar esta paginacion, recordar poner en el el index.blade.php este codigo  {!! $clientes->links() !!}    
+    {
+        //Con paginación
+        $clientes = Cliente::paginate(5);
+        return view('clientes.index', compact('clientes'));
+        //al usar esta paginacion, recordar poner en el el index.blade.php este codigo  {!! $clientes->links() !!}    
     }
 
     /**
@@ -53,11 +56,14 @@ class ClienteController extends Controller
             'correo' => 'required',
             'telefono' => 'required',
         ]);
-    
-        Cliente::create($request->all());
-    
+
+        $cliente = Cliente::create($request->all());
+
+        $this->createAudit('create', null, json_encode($cliente->toArray()));
+
         return redirect()->route('clientes.index');
     }
+
 
     /**
      * Display the specified resource.
@@ -78,7 +84,7 @@ class ClienteController extends Controller
      */
     public function edit(Cliente $cliente)
     {
-        return view('clientes.editar',compact('cliente'));
+        return view('clientes.editar', compact('cliente'));
     }
 
     /**
@@ -90,16 +96,20 @@ class ClienteController extends Controller
      */
     public function update(Request $request, Cliente $cliente)
     {
-         request()->validate([
+        request()->validate([
             'cedula' => 'required',
             'nombre' => 'required',
             'apellido' => 'required',
             'correo' => 'required',
             'telefono' => 'required',
         ]);
-    
+
+        $oldData = json_encode($cliente->toArray());
+
         $cliente->update($request->all());
-    
+
+        $this->createAudit('update', $oldData, json_encode($cliente->toArray()));
+
         return redirect()->route('clientes.index');
     }
 
@@ -111,8 +121,21 @@ class ClienteController extends Controller
      */
     public function destroy(Cliente $cliente)
     {
+        $oldData = json_encode($cliente->toArray());
+
         $cliente->delete();
-    
+
+        $this->createAudit('delete', $oldData);
+
         return redirect()->route('clientes.index');
+    }
+    private function createAudit($action, $oldData = null, $newData = null)
+    {
+        $audit = new Audit();
+        $audit->user_id = auth()->user()->id;
+        $audit->action = $action;
+        $audit->old_data = $oldData;
+        $audit->new_data = $newData;
+        $audit->save();
     }
 }
